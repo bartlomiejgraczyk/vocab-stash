@@ -85,10 +85,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- Word List ----
 
+  const defaultEmptyText = emptyState.textContent;
+
   function loadWords() {
     chrome.runtime.sendMessage({ action: "getWords" }, (response) => {
-      if (response && response.success) {
+      if (chrome.runtime.lastError) {
+        console.error("Vocab Stash: failed to load words.", chrome.runtime.lastError);
+        words = [];
+        emptyState.textContent = "Unable to load saved words. Please try again.";
+        renderWordList();
+        return;
+      }
+      if (response && response.success && Array.isArray(response.words)) {
+        emptyState.textContent = defaultEmptyText;
         words = response.words;
+        renderWordList();
+      } else {
+        console.error("Vocab Stash: invalid getWords response.", response);
+        words = [];
+        emptyState.textContent = "Unable to load saved words. Please try again.";
         renderWordList();
       }
     });
@@ -149,17 +164,17 @@ document.addEventListener("DOMContentLoaded", () => {
       wordList.appendChild(item);
     });
 
-    // Delete buttons
-    wordList.querySelectorAll(".word-item__delete").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.id;
-        deleteWord(id);
-      });
-    });
-
     // Keep export preview in sync
     updateExportPreview();
   }
+
+  // Delete buttons - event delegation (single listener on wordList)
+  wordList.addEventListener("click", (e) => {
+    const deleteBtn = e.target.closest(".word-item__delete");
+    if (!deleteBtn) return;
+    const id = deleteBtn.dataset.id;
+    if (id) deleteWord(id);
+  });
 
   function deleteWord(id) {
     chrome.runtime.sendMessage({ action: "deleteWord", id }, (response) => {
@@ -231,6 +246,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function loadSettings() {
     chrome.runtime.sendMessage({ action: "getSettings" }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Vocab Stash: failed to load settings.", chrome.runtime.lastError);
+        return;
+      }
       if (response && response.success) {
         const s = response.settings;
         sourceLangSelect.value = s.sourceLang || "en";

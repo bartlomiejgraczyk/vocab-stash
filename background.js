@@ -67,13 +67,22 @@ async function handleTranslate(word) {
     if (data.responseStatus === 200 && data.responseData) {
       const translation = data.responseData.translatedText;
 
+      if (typeof translation !== "string" || !translation.trim()) {
+        return { success: false, error: "Translation not found" };
+      }
+
+      const normalizedWord = word.trim().toLowerCase();
+      const normalizedTranslation = translation.toLowerCase();
+
       // MyMemory sometimes returns the same text if it can't translate
-      if (translation.toLowerCase() === word.toLowerCase()) {
+      if (normalizedTranslation === normalizedWord) {
         // Try to get a match from the alternatives
         if (data.matches && data.matches.length > 1) {
           const alt = data.matches.find(
             (m) =>
-              m.translation.toLowerCase() !== word.toLowerCase() && m.quality > 0
+              typeof m.translation === "string" &&
+              m.translation.toLowerCase() !== normalizedWord &&
+              m.quality > 0
           );
           if (alt) {
             return { success: true, translation: alt.translation };
@@ -98,13 +107,23 @@ async function handleTranslate(word) {
 
 async function handleSaveWord({ word, translation, sourceUrl }) {
   try {
+    if (!word || typeof word !== "string" || !word.trim()) {
+      return { success: false, error: "No word provided" };
+    }
+    if (!translation || typeof translation !== "string" || !translation.trim()) {
+      return { success: false, error: "No translation provided" };
+    }
+
+    const trimmedWord = word.trim();
+    const trimmedTranslation = translation.trim();
+
     const { words = [] } = await chrome.storage.local.get("words");
 
     // Avoid exact duplicates
     const exists = words.some(
       (w) =>
-        w.word.toLowerCase() === word.toLowerCase() &&
-        w.translation.toLowerCase() === translation.toLowerCase()
+        w.word.toLowerCase() === trimmedWord.toLowerCase() &&
+        w.translation.toLowerCase() === trimmedTranslation.toLowerCase()
     );
     if (exists) {
       return { success: true, duplicate: true };
@@ -112,8 +131,8 @@ async function handleSaveWord({ word, translation, sourceUrl }) {
 
     const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      word: word,
-      translation: translation,
+      word: trimmedWord,
+      translation: trimmedTranslation,
       sourceUrl: sourceUrl || "",
       createdAt: new Date().toISOString(),
     };
