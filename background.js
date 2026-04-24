@@ -11,10 +11,6 @@ const DEFAULT_SETTINGS = {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {
-    case "translate":
-      handleTranslate(message.word).then(sendResponse);
-      return true; // keep message channel open for async response
-
     case "getTranslations":
       handleGetTranslations(message.word).then(sendResponse);
       return true;
@@ -53,10 +49,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 const MAX_TRANSLATIONS = 5;
 
 async function fetchTranslationData(word) {
-  if (!word || typeof word !== "string" || !word.trim()) {
-    return { success: false, error: "No word provided" };
-  }
-
   const settings = await getSettings();
   const url = new URL("https://api.mymemory.translated.net/get");
   url.searchParams.set("q", word.trim());
@@ -68,6 +60,12 @@ async function fetchTranslationData(word) {
   }
 
   return response.json();
+}
+
+function parseQuality(q) {
+  if (typeof q === "number") return q;
+  if (typeof q === "string") return parseInt(q, 10) || 0;
+  return 0;
 }
 
 /**
@@ -96,15 +94,9 @@ function extractTranslations(data, normalizedWord) {
 
   // Additional matches sorted by quality (descending)
   if (Array.isArray(data.matches)) {
-    const sorted = [...data.matches].sort((a, b) => {
-      const qa = typeof a.quality === "number" ? a.quality
-        : typeof a.quality === "string" ? parseInt(a.quality, 10) || 0
-        : 0;
-      const qb = typeof b.quality === "number" ? b.quality
-        : typeof b.quality === "string" ? parseInt(b.quality, 10) || 0
-        : 0;
-      return qb - qa;
-    });
+    const sorted = [...data.matches].sort(
+      (a, b) => parseQuality(b.quality) - parseQuality(a.quality)
+    );
 
     for (const m of sorted) {
       if (results.length >= MAX_TRANSLATIONS) break;
@@ -115,50 +107,6 @@ function extractTranslations(data, normalizedWord) {
   return results;
 }
 
-async function handleTranslate(word) {
-  try {
-    const data = await fetchTranslationData(word);
-    if (typeof data !== "object" || !data) {
-      return { success: false, error: "Translation not found" };
-    }
-
-    if (data.responseStatus === 200 && data.responseData) {
-      const translation = data.responseData.translatedText;
-      if (typeof translation !== "string" || !translation.trim()) {
-        return { success: false, error: "Translation not found" };
-      }
-
-      const normalizedWord = word.trim().toLowerCase();
-      const normalizedTranslation = translation.trim().toLowerCase();
-
-      // MyMemory sometimes returns the same text if it can't translate
-      if (normalizedTranslation === normalizedWord) {
-        if (data.matches && data.matches.length > 1) {
-          const alt = data.matches.find(
-            (m) =>
-              typeof m.translation === "string" &&
-              m.translation.toLowerCase() !== normalizedWord &&
-              m.quality > 0
-          );
-          if (alt) {
-            return { success: true, translation: alt.translation.trim() };
-          }
-        }
-      }
-
-      return { success: true, translation: translation.trim() };
-    }
-
-    return {
-      success: false,
-      error: data.responseDetails || "Translation not found",
-    };
-  } catch (err) {
-    console.error("Vocab Stash: translation error", err);
-    return { success: false, error: "Translation service unavailable" };
-  }
-}
-
 async function handleGetTranslations(word) {
   try {
     if (!word || typeof word !== "string" || !word.trim()) {
@@ -166,9 +114,6 @@ async function handleGetTranslations(word) {
     }
 
     const data = await fetchTranslationData(word);
-    if (typeof data !== "object" || !data) {
-      return { success: false, error: "Translation not found" };
-    }
 
     if (data.responseStatus !== 200 || !data.responseData) {
       return {

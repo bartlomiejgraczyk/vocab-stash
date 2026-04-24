@@ -1,6 +1,6 @@
 // ===== Vocab Stash - Content Script =====
-// Injected into every web page. Handles text selection, shows the save button
-// and translation tooltip, and communicates with the background service worker.
+// Injected into every web page. Handles text selection, shows the translate
+// button, and displays translation options for the user to pick and save.
 
 (function () {
   "use strict";
@@ -74,7 +74,6 @@
     saveBtn.textContent = "V";
     saveBtn.title = "Vocab Stash: Translate & Save";
     saveBtn.setAttribute("aria-label", "Translate and save selected word");
-    saveBtn.setAttribute("aria-expanded", "false");
 
     // Position to the right of the selection
     const scrollX = window.scrollX;
@@ -159,13 +158,12 @@
 
     const list = document.createElement("div");
     list.className = "vs-tooltip-options";
-    list.setAttribute("role", "listbox");
-    list.setAttribute("aria-label", "Choose a translation");
+    list.setAttribute("role", "group");
+    list.setAttribute("aria-label", "Translation options");
 
     translations.forEach((translation, index) => {
       const option = document.createElement("button");
       option.className = "vs-tooltip-option";
-      option.setAttribute("role", "option");
       option.textContent = translation;
       option.title = "Click to save this translation";
       if (index === 0) option.classList.add("vs-tooltip-option--best");
@@ -250,7 +248,6 @@
 
     // Hide the save button, show the tooltip
     if (saveBtn) {
-      saveBtn.setAttribute("aria-expanded", "true");
       saveBtn.remove();
       saveBtn = null;
     }
