@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Vocab Stash",
+  "version": "1.0.0",
+  "description": "Save vocabulary while browsing. Select a word, get a translation, and export flashcards for Quizlet.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["shadow.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

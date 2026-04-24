@@ -1,0 +1,12 @@
+/* ===== Vocab Stash - Content Script Styles ===== */
+
+/* All elements are inside shadow DOM, but we need a host container */
+#vocab-stash-host {
+  position: absolute;
+  z-index: 2147483647;
+  pointer-events: none;
+}
+
+#vocab-stash-host * {
+  pointer-events: auto;
+}
