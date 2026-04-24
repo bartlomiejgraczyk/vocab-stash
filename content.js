@@ -70,6 +70,7 @@
 
   function showTranslateButton(rect) {
     ensureHost();
+    if (!shadow) return;
     if (saveBtn) saveBtn.remove();
 
     saveBtn = document.createElement("button");
@@ -95,6 +96,7 @@
 
   function showTooltip(rect, word) {
     ensureHost();
+    if (!shadow) return;
     if (tooltip) tooltip.remove();
 
     tooltip = document.createElement("div");
@@ -246,10 +248,18 @@
       },
       (response) => {
         if (chrome.runtime.lastError || !response?.success) {
-          console.error("Vocab Stash: save failed", chrome.runtime.lastError);
+          const message = response?.error || "Save failed. Try another option.";
+          console.error("Vocab Stash: save failed", chrome.runtime.lastError || response);
           allOptions.forEach((opt) => { opt.disabled = false; });
           optionEl.classList.remove("vs-tooltip-option--saving");
-          optionEl.textContent = translation;
+          optionEl.classList.add("vs-tooltip-option--error");
+          optionEl.textContent = `${translation} — ${message}`;
+
+          setTimeout(() => {
+            if (!optionEl.isConnected || optionEl.disabled) return;
+            optionEl.classList.remove("vs-tooltip-option--error");
+            optionEl.textContent = translation;
+          }, 1400);
           return;
         }
 

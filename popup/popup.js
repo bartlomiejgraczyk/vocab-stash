@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   let words = [];
+  const feedbackTimers = new WeakMap();
 
   // ---- Helpers ----
 
@@ -51,10 +52,51 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function isNonEmptyString(val) {
+    return typeof val === "string" && val.trim().length > 0;
+  }
+
+  function normalizeWordEntries(rawWords) {
+    if (!Array.isArray(rawWords)) return [];
+
+    return rawWords
+      .filter(
+        (entry) =>
+          entry &&
+          typeof entry === "object" &&
+          isNonEmptyString(entry.id) &&
+          isNonEmptyString(entry.word) &&
+          isNonEmptyString(entry.translation)
+      )
+      .map((entry) => ({
+        id: entry.id.trim(),
+        word: entry.word.trim(),
+        translation: entry.translation.trim(),
+      }));
+  }
+
+  function setSelectValue(selectEl, value, fallback) {
+    const options = new Set(Array.from(selectEl.options, (opt) => opt.value));
+    selectEl.value = options.has(value) ? value : fallback;
+  }
+
   /** Show temporary text in a feedback element, auto-clearing after `ms`. */
   function showFeedback(el, text, ms = 2000) {
+    const existing = feedbackTimers.get(el);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
     el.textContent = text;
-    setTimeout(() => { el.textContent = ""; }, ms);
+
+    const timer = setTimeout(() => {
+      if (feedbackTimers.get(el) === timer) {
+        el.textContent = "";
+        feedbackTimers.delete(el);
+      }
+    }, ms);
+
+    feedbackTimers.set(el, timer);
   }
 
   // ---- Tab Switching ----
@@ -119,9 +161,9 @@ document.addEventListener("DOMContentLoaded", () => {
   async function loadWords() {
     try {
       const response = await sendAction({ action: "getWords" });
-      if (response?.success && Array.isArray(response.words)) {
+      if (response?.success) {
         emptyState.textContent = defaultEmptyText;
-        words = response.words;
+        words = normalizeWordEntries(response.words);
       } else {
         throw new Error("Invalid response");
       }
@@ -273,10 +315,10 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await sendAction({ action: "getSettings" });
       if (response?.success) {
-        const s = response.settings;
-        sourceLangSelect.value = s.sourceLang || "en";
-        targetLangSelect.value = s.targetLang || "pl";
-        separatorSelect.value = SEPARATOR_TO_SELECT[s.separator] || "\\t";
+        const s = response.settings || {};
+        setSelectValue(sourceLangSelect, s.sourceLang, "en");
+        setSelectValue(targetLangSelect, s.targetLang, "pl");
+        setSelectValue(separatorSelect, SEPARATOR_TO_SELECT[s.separator], "\\t");
         updateExportPreview();
       }
     } catch (err) {

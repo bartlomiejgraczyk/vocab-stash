@@ -18,27 +18,50 @@ const VALID_SEPARATORS = new Set(["\t", ",", ";", " - "]);
 
 // ---- Validation Helpers ----
 
+function isPlainObject(val) {
+  return val !== null && typeof val === "object" && !Array.isArray(val);
+}
+
 function isNonEmptyString(val) {
   return typeof val === "string" && val.trim().length > 0;
 }
 
-function validateWord(word) {
+function validateWord(word, fieldName = "word") {
   if (!isNonEmptyString(word)) {
-    return { valid: false, error: "No word provided" };
+    return { valid: false, error: `No ${fieldName} provided` };
   }
   return { valid: true, trimmed: word.trim() };
 }
 
-// ---- Message Handler ----
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  const handler = MESSAGE_HANDLERS[message.action];
-  if (handler) {
-    handler(message).then(sendResponse);
-    return true; // keep channel open for async response
+function sanitizeSourceUrl(sourceUrl) {
+  if (!isNonEmptyString(sourceUrl)) return "";
+  try {
+    return new URL(sourceUrl.trim()).origin;
+  } catch {
+    return "";
   }
-  sendResponse({ success: false, error: "Unknown action" });
-});
+}
+
+function normalizeSettings(settingsCandidate) {
+  const normalized = { ...DEFAULT_SETTINGS };
+  if (!isPlainObject(settingsCandidate)) {
+    return normalized;
+  }
+
+  if (VALID_LANGS.has(settingsCandidate.sourceLang)) {
+    normalized.sourceLang = settingsCandidate.sourceLang;
+  }
+  if (VALID_LANGS.has(settingsCandidate.targetLang)) {
+    normalized.targetLang = settingsCandidate.targetLang;
+  }
+  if (VALID_SEPARATORS.has(settingsCandidate.separator)) {
+    normalized.separator = settingsCandidate.separator;
+  }
+
+  return normalized;
+}
+
+// ---- Message Handler ----
 
 const MESSAGE_HANDLERS = {
   getTranslations: (msg) => handleGetTranslations(msg.word),
@@ -49,6 +72,34 @@ const MESSAGE_HANDLERS = {
   getSettings:     ()    => handleGetSettings(),
   saveSettings:    (msg) => handleSaveSettings(msg.settings),
 };
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  const action = isPlainObject(message) ? message.action : null;
+  const handler = typeof action === "string" ? MESSAGE_HANDLERS[action] : null;
+
+  if (!handler) {
+    sendResponse({ success: false, error: "Unknown action" });
+    return false;
+  }
+
+  let result;
+  try {
+    result = handler(message);
+  } catch (err) {
+    console.error("Vocab Stash: message handler error", err);
+    sendResponse({ success: false, error: "Unexpected error" });
+    return false;
+  }
+
+  Promise.resolve(result)
+    .then(sendResponse)
+    .catch((err) => {
+      console.error("Vocab Stash: message handler error", err);
+      sendResponse({ success: false, error: "Unexpected error" });
+    });
+
+  return true; // keep channel open for async response
+});
 
 // ---- Translation ----
 
@@ -110,7 +161,7 @@ function extractTranslations(data, normalizedWord) {
 
 async function handleGetTranslations(word) {
   try {
-    const check = validateWord(word);
+    const check = validateWord(word, "word");
     if (!check.valid) return { success: false, error: check.error };
 
     const data = await fetchTranslationData(check.trimmed);
@@ -140,11 +191,11 @@ async function getStoredWords() {
 
 async function handleSaveWord({ word, translation, sourceUrl } = {}) {
   try {
-    const wordCheck = validateWord(word);
+    const wordCheck = validateWord(word, "word");
     if (!wordCheck.valid) return { success: false, error: wordCheck.error };
 
-    const transCheck = validateWord(translation);
-    if (!transCheck.valid) return { success: false, error: "No translation provided" };
+    const transCheck = validateWord(translation, "translation");
+    if (!transCheck.valid) return { success: false, error: transCheck.error };
 
     const normalizedWord = wordCheck.trimmed.toLowerCase();
     const normalizedTranslation = transCheck.trimmed.toLowerCase();
@@ -165,7 +216,7 @@ async function handleSaveWord({ word, translation, sourceUrl } = {}) {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       word: wordCheck.trimmed,
       translation: transCheck.trimmed,
-      sourceUrl: sourceUrl || "",
+      sourceUrl: sanitizeSourceUrl(sourceUrl),
       createdAt: new Date().toISOString(),
     };
 
@@ -188,8 +239,13 @@ async function handleGetWords() {
 
 async function handleDeleteWord(id) {
   try {
+    if (!isNonEmptyString(id)) {
+      return { success: false, error: "Invalid word id" };
+    }
+
+    const trimmedId = id.trim();
     const words = await getStoredWords();
-    await chrome.storage.local.set({ words: words.filter((w) => w.id !== id) });
+    await chrome.storage.local.set({ words: words.filter((w) => w.id !== trimmedId) });
     return { success: true };
   } catch (err) {
     return { success: false, error: "Failed to delete word" };
@@ -209,7 +265,7 @@ async function handleClearWords() {
 
 async function getSettings() {
   const { settings } = await chrome.storage.local.get("settings");
-  return { ...DEFAULT_SETTINGS, ...settings };
+  return normalizeSettings(settings);
 }
 
 async function handleGetSettings() {
@@ -223,11 +279,19 @@ async function handleGetSettings() {
 
 async function handleSaveSettings(newSettings = {}) {
   try {
-    const merged = { ...(await getSettings()) };
-
-    if (VALID_LANGS.has(newSettings.sourceLang))      merged.sourceLang = newSettings.sourceLang;
-    if (VALID_LANGS.has(newSettings.targetLang))      merged.targetLang = newSettings.targetLang;
-    if (VALID_SEPARATORS.has(newSettings.separator))   merged.separator = newSettings.separator;
+    const current = await getSettings();
+    const incoming = isPlainObject(newSettings) ? newSettings : {};
+    const merged = {
+      sourceLang: VALID_LANGS.has(incoming.sourceLang)
+        ? incoming.sourceLang
+        : current.sourceLang,
+      targetLang: VALID_LANGS.has(incoming.targetLang)
+        ? incoming.targetLang
+        : current.targetLang,
+      separator: VALID_SEPARATORS.has(incoming.separator)
+        ? incoming.separator
+        : current.separator,
+    };
 
     await chrome.storage.local.set({ settings: merged });
     return { success: true, settings: merged };
