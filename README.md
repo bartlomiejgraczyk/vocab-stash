@@ -70,7 +70,7 @@ vocab-stash/
 | Permission | Reason |
 |---|---|
 | `storage` | Persist saved words and settings across sessions |
-| `activeTab` | Access the current tab for content script injection |
+| `host_permissions` (`api.mymemory.translated.net`) | Fetch translations from the MyMemory API |
 | `<all_urls>` (content script) | Inject the word-selection UI on all web pages |
 
 ## Built With

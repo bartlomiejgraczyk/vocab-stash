@@ -4,8 +4,10 @@
   "version": "1.0.0",
   "description": "Save vocabulary while browsing. Select a word, get a translation, and export flashcards for Quizlet.",
   "permissions": [
-    "storage",
-    "activeTab"
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.mymemory.translated.net/*"
   ],
   "background": {
     "service_worker": "background.js"

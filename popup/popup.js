@@ -76,14 +76,34 @@ document.addEventListener("DOMContentLoaded", () => {
     sorted.forEach((entry) => {
       const item = document.createElement("div");
       item.className = "word-item";
-      item.innerHTML = `
-        <div class="word-item__text">
-          <span class="word-item__original">${escapeHtml(entry.word)}</span>
-          <span class="word-item__arrow">&rarr;</span>
-          <span class="word-item__translation">${escapeHtml(entry.translation)}</span>
-        </div>
-        <button class="word-item__delete" title="Delete" data-id="${entry.id}">&times;</button>
-      `;
+
+      const textDiv = document.createElement("div");
+      textDiv.className = "word-item__text";
+
+      const originalSpan = document.createElement("span");
+      originalSpan.className = "word-item__original";
+      originalSpan.textContent = entry.word;
+
+      const arrowSpan = document.createElement("span");
+      arrowSpan.className = "word-item__arrow";
+      arrowSpan.innerHTML = "&rarr;";
+
+      const translationSpan = document.createElement("span");
+      translationSpan.className = "word-item__translation";
+      translationSpan.textContent = entry.translation;
+
+      textDiv.appendChild(originalSpan);
+      textDiv.appendChild(arrowSpan);
+      textDiv.appendChild(translationSpan);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "word-item__delete";
+      deleteBtn.title = "Delete";
+      deleteBtn.dataset.id = entry.id;
+      deleteBtn.innerHTML = "&times;";
+
+      item.appendChild(textDiv);
+      item.appendChild(deleteBtn);
       wordList.appendChild(item);
     });
 

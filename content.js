@@ -72,6 +72,8 @@
     saveBtn.className = "vs-save-btn";
     saveBtn.textContent = "V";
     saveBtn.title = "Vocab Stash: Translate & Save";
+    saveBtn.setAttribute("aria-label", "Translate and save selected word");
+    saveBtn.setAttribute("aria-haspopup", "dialog");
 
     // Position to the right of the selection
     const scrollX = window.scrollX;
