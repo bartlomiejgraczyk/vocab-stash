@@ -110,7 +110,7 @@ async function getStoredWords() {
   return Array.isArray(words) ? words : [];
 }
 
-async function handleSaveWord({ word, translation, sourceUrl }) {
+async function handleSaveWord({ word, translation, sourceUrl } = {}) {
   try {
     if (!word || typeof word !== "string" || !word.trim()) {
       return { success: false, error: "No word provided" };

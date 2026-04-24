@@ -5,9 +5,10 @@
 (function () {
   "use strict";
 
-  // Prevent double-injection
-  if (window.__vocabStashLoaded) return;
-  window.__vocabStashLoaded = true;
+  // Prevent double-injection (uses content script's isolated world,
+  // not page-controlled window, so host pages cannot disable the extension)
+  if (globalThis.__vocabStashLoaded) return;
+  globalThis.__vocabStashLoaded = true;
 
   // ---- Shadow DOM host ----
   let hostEl = null;
