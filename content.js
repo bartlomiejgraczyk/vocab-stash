@@ -21,7 +21,9 @@
     if (hostEl) return;
     hostEl = document.createElement("div");
     hostEl.id = "vocab-stash-host";
-    document.body.appendChild(hostEl);
+    const parent = document.body || document.documentElement;
+    if (!parent) return;
+    parent.appendChild(hostEl);
     shadow = hostEl.attachShadow({ mode: "closed" });
 
     // Load shadow DOM styles
@@ -73,7 +75,8 @@
     saveBtn.textContent = "V";
     saveBtn.title = "Vocab Stash: Translate & Save";
     saveBtn.setAttribute("aria-label", "Translate and save selected word");
-    saveBtn.setAttribute("aria-haspopup", "dialog");
+    saveBtn.setAttribute("aria-expanded", "false");
+    saveBtn.setAttribute("aria-controls", "vs-translation-tooltip");
 
     // Position to the right of the selection
     const scrollX = window.scrollX;
@@ -98,6 +101,9 @@
 
     tooltip = document.createElement("div");
     tooltip.className = "vs-tooltip";
+    tooltip.id = "vs-translation-tooltip";
+    tooltip.setAttribute("role", "region");
+    tooltip.setAttribute("aria-label", "Translation");
 
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
@@ -186,6 +192,7 @@
 
     // Hide the save button, show the tooltip
     if (saveBtn) {
+      saveBtn.setAttribute("aria-expanded", "true");
       saveBtn.remove();
       saveBtn = null;
     }

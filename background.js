@@ -48,9 +48,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function handleTranslate(word) {
   try {
+    if (!word || typeof word !== "string" || !word.trim()) {
+      return { success: false, error: "No word provided" };
+    }
+
     const settings = await getSettings();
-    const langPair = `${settings.sourceLang}|${settings.targetLang}`;
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=${langPair}`;
+    const url = new URL("https://api.mymemory.translated.net/get");
+    url.searchParams.set("q", word.trim());
+    url.searchParams.set("langpair", `${settings.sourceLang}|${settings.targetLang}`);
 
     const response = await fetch(url);
     if (!response.ok) {

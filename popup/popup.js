@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- DOM Elements ----
   const tabButtons = document.querySelectorAll(".tabs__btn");
   const tabContents = document.querySelectorAll(".tab-content");
+  const tabList = document.querySelector(".tabs");
 
   const wordList = document.getElementById("word-list");
   const wordCount = document.getElementById("word-count");
@@ -23,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const settingsFeedback = document.getElementById("settings-feedback");
 
   // Validate critical DOM elements
-  const required = { wordList, wordCount, emptyState, wordListActions, clearAllBtn, exportTextarea, separatorSelect, copyBtn, sourceLangSelect, targetLangSelect, saveSettingsBtn };
+  const required = { tabList, wordList, wordCount, emptyState, wordListActions, clearAllBtn, exportTextarea, separatorSelect, copyBtn, copyFeedback, sourceLangSelect, targetLangSelect, saveSettingsBtn, settingsFeedback };
   const missing = Object.entries(required).filter(([, el]) => !el).map(([name]) => name);
   if (missing.length > 0) {
     console.error(`Vocab Stash: missing DOM elements: ${missing.join(", ")}. Popup will not initialize.`);
@@ -61,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Arrow key navigation between tabs
-  document.querySelector(".tabs").addEventListener("keydown", (e) => {
+  tabList.addEventListener("keydown", (e) => {
     const tabs = [...tabButtons];
     const current = tabs.findIndex((b) => b.getAttribute("aria-selected") === "true");
     let next = -1;
