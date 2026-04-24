@@ -49,7 +49,8 @@ jobs:
       - name: Package extension
         run: |
           mkdir -p build/vocab-stash
-          cp manifest.json background.js content.js content.css shadow.css build/vocab-stash/
+          cp manifest.json content.js content.css shadow.css build/vocab-stash/
+          cp -r background build/vocab-stash/
           cp -r popup build/vocab-stash/
           cp -r icons build/vocab-stash/
           cd build

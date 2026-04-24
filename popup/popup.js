@@ -32,6 +32,72 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   let words = [];
+  const feedbackTimers = new WeakMap();
+
+  // ---- Helpers ----
+
+  /**
+   * Send a message to the background service worker.
+   * Returns a Promise that rejects on chrome.runtime.lastError.
+   */
+  function sendAction(message) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+          return;
+        }
+        resolve(response);
+      });
+    });
+  }
+
+  function isNonEmptyString(val) {
+    return typeof val === "string" && val.trim().length > 0;
+  }
+
+  function normalizeWordEntries(rawWords) {
+    if (!Array.isArray(rawWords)) return [];
+
+    return rawWords
+      .filter(
+        (entry) =>
+          entry &&
+          typeof entry === "object" &&
+          isNonEmptyString(entry.id) &&
+          isNonEmptyString(entry.word) &&
+          isNonEmptyString(entry.translation)
+      )
+      .map((entry) => ({
+        id: entry.id.trim(),
+        word: entry.word.trim(),
+        translation: entry.translation.trim(),
+      }));
+  }
+
+  function setSelectValue(selectEl, value, fallback) {
+    const options = new Set(Array.from(selectEl.options, (opt) => opt.value));
+    selectEl.value = options.has(value) ? value : fallback;
+  }
+
+  /** Show temporary text in a feedback element, auto-clearing after `ms`. */
+  function showFeedback(el, text, ms = 2000) {
+    const existing = feedbackTimers.get(el);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    el.textContent = text;
+
+    const timer = setTimeout(() => {
+      if (feedbackTimers.get(el) === timer) {
+        el.textContent = "";
+        feedbackTimers.delete(el);
+      }
+    }, ms);
+
+    feedbackTimers.set(el, timer);
+  }
 
   // ---- Tab Switching ----
 
@@ -57,7 +123,6 @@ document.addEventListener("DOMContentLoaded", () => {
     activePanel.classList.add("tab-content--active");
     activePanel.hidden = false;
 
-    // Refresh export when switching to export tab
     if (tabName === "export") {
       updateExportPreview();
     }
@@ -93,49 +158,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const defaultEmptyText = emptyState.textContent;
 
-  function loadWords() {
-    chrome.runtime.sendMessage({ action: "getWords" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Vocab Stash: failed to load words.", chrome.runtime.lastError);
-        words = [];
-        emptyState.textContent = "Unable to load saved words. Please try again.";
-        renderWordList();
-        return;
-      }
-      if (response && response.success && Array.isArray(response.words)) {
+  async function loadWords() {
+    try {
+      const response = await sendAction({ action: "getWords" });
+      if (response?.success) {
         emptyState.textContent = defaultEmptyText;
-        words = response.words;
-        renderWordList();
+        words = normalizeWordEntries(response.words);
       } else {
-        console.error("Vocab Stash: invalid getWords response.", response);
-        words = [];
-        emptyState.textContent = "Unable to load saved words. Please try again.";
-        renderWordList();
+        throw new Error("Invalid response");
       }
-    });
+    } catch (err) {
+      console.error("Vocab Stash: failed to load words.", err);
+      words = [];
+      emptyState.textContent = "Unable to load saved words. Please try again.";
+    }
+    renderWordList();
   }
 
   function renderWordList() {
-    // Update count
     const count = words.length;
     wordCount.textContent = `${count} word${count !== 1 ? "s" : ""}`;
 
-    // Clear existing items (keep empty state)
     wordList.querySelectorAll(".word-item").forEach((el) => el.remove());
 
     if (count === 0) {
       emptyState.style.display = "block";
-      wordListActions.style.display = "none";
+      wordListActions.classList.add("is-hidden");
       updateExportPreview();
       return;
     }
 
     emptyState.style.display = "none";
-    wordListActions.style.display = "block";
+    wordListActions.classList.remove("is-hidden");
 
     // Render words (newest first)
     const sorted = [...words].reverse();
-    sorted.forEach((entry) => {
+    for (const entry of sorted) {
       const item = document.createElement("div");
       item.className = "word-item";
 
@@ -154,9 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
       translationSpan.className = "word-item__translation";
       translationSpan.textContent = entry.translation;
 
-      textDiv.appendChild(originalSpan);
-      textDiv.appendChild(arrowSpan);
-      textDiv.appendChild(translationSpan);
+      textDiv.append(originalSpan, arrowSpan, translationSpan);
 
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "word-item__delete";
@@ -165,16 +221,14 @@ document.addEventListener("DOMContentLoaded", () => {
       deleteBtn.dataset.id = entry.id;
       deleteBtn.innerHTML = "&times;";
 
-      item.appendChild(textDiv);
-      item.appendChild(deleteBtn);
+      item.append(textDiv, deleteBtn);
       wordList.appendChild(item);
-    });
+    }
 
-    // Keep export preview in sync
     updateExportPreview();
   }
 
-  // Delete buttons - event delegation (single listener on wordList)
+  // Delete buttons — event delegation
   wordList.addEventListener("click", (e) => {
     const deleteBtn = e.target.closest(".word-item__delete");
     if (!deleteBtn) return;
@@ -182,58 +236,51 @@ document.addEventListener("DOMContentLoaded", () => {
     if (id) deleteWord(id);
   });
 
-  function deleteWord(id) {
-    chrome.runtime.sendMessage({ action: "deleteWord", id }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Vocab Stash: delete failed.", chrome.runtime.lastError);
-        loadWords(); // reload to ensure UI is in sync with storage
-        return;
-      }
-      if (response && response.success) {
+  async function deleteWord(id) {
+    try {
+      const response = await sendAction({ action: "deleteWord", id });
+      if (response?.success) {
         words = words.filter((w) => w.id !== id);
         renderWordList();
-      } else {
-        console.error("Vocab Stash: delete failed.", response);
-        loadWords();
-      }
-    });
-  }
-
-  clearAllBtn.addEventListener("click", () => {
-    if (!confirm("Delete all saved words? This cannot be undone.")) return;
-
-    chrome.runtime.sendMessage({ action: "clearWords" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Vocab Stash: clear failed.", chrome.runtime.lastError);
-        loadWords();
         return;
       }
-      if (response && response.success) {
+    } catch (err) {
+      console.error("Vocab Stash: delete failed.", err);
+    }
+    // On any failure, reload from storage to stay in sync
+    loadWords();
+  }
+
+  clearAllBtn.addEventListener("click", async () => {
+    if (!confirm("Delete all saved words? This cannot be undone.")) return;
+
+    try {
+      const response = await sendAction({ action: "clearWords" });
+      if (response?.success) {
         words = [];
         renderWordList();
-      } else {
-        console.error("Vocab Stash: clear failed.", response);
-        loadWords();
+        return;
       }
-    });
+    } catch (err) {
+      console.error("Vocab Stash: clear failed.", err);
+    }
+    loadWords();
   });
 
   // ---- Export ----
 
   function getSeparator() {
     const val = separatorSelect.value;
-    // Handle escaped tab character
-    if (val === "\\t") return "\t";
-    return val;
+    return val === "\\t" ? "\t" : val;
   }
 
   function updateExportPreview() {
-    const sep = getSeparator();
     if (words.length === 0) {
       exportTextarea.value = "";
       exportTextarea.placeholder = "No words to export yet.";
       return;
     }
+    const sep = getSeparator();
     const lines = [...words].reverse().map((w) => `${w.word}${sep}${w.translation}`);
     exportTextarea.value = lines.join("\n");
   }
@@ -243,77 +290,59 @@ document.addEventListener("DOMContentLoaded", () => {
   copyBtn.addEventListener("click", async () => {
     const text = exportTextarea.value;
     if (!text) {
-      copyFeedback.textContent = "Nothing to copy.";
-      setTimeout(() => {
-        copyFeedback.textContent = "";
-      }, 2000);
+      showFeedback(copyFeedback, "Nothing to copy.");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(text);
-      copyFeedback.textContent = "Copied to clipboard!";
+      showFeedback(copyFeedback, "Copied to clipboard!");
     } catch {
-      // Fallback: select + copy
       exportTextarea.select();
       const ok = document.execCommand("copy");
-      copyFeedback.textContent = ok
-        ? "Copied to clipboard!"
-        : "Copy failed. Please select the text and copy manually.";
+      showFeedback(
+        copyFeedback,
+        ok ? "Copied to clipboard!" : "Copy failed. Please select the text and copy manually."
+      );
     }
-
-    setTimeout(() => {
-      copyFeedback.textContent = "";
-    }, 2000);
   });
 
   // ---- Settings ----
 
-  function loadSettings() {
-    chrome.runtime.sendMessage({ action: "getSettings" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Vocab Stash: failed to load settings.", chrome.runtime.lastError);
-        return;
-      }
-      if (response && response.success) {
-        const s = response.settings;
-        sourceLangSelect.value = s.sourceLang || "en";
-        targetLangSelect.value = s.targetLang || "pl";
+  const SEPARATOR_TO_SELECT = { "\t": "\\t", ",": ",", ";": ";", " - ": " - " };
 
-        // Set separator in export tab
-        const sepMap = { "\t": "\\t", ",": ",", ";": ";", " - ": " - " };
-        const sepValue = sepMap[s.separator] || "\\t";
-        separatorSelect.value = sepValue;
+  async function loadSettings() {
+    try {
+      const response = await sendAction({ action: "getSettings" });
+      if (response?.success) {
+        const s = response.settings || {};
+        setSelectValue(sourceLangSelect, s.sourceLang, "en");
+        setSelectValue(targetLangSelect, s.targetLang, "pl");
+        setSelectValue(separatorSelect, SEPARATOR_TO_SELECT[s.separator], "\\t");
+        updateExportPreview();
       }
-    });
+    } catch (err) {
+      console.error("Vocab Stash: failed to load settings.", err);
+    }
   }
 
-  saveSettingsBtn.addEventListener("click", () => {
+  saveSettingsBtn.addEventListener("click", async () => {
     const settings = {
       sourceLang: sourceLangSelect.value,
       targetLang: targetLangSelect.value,
       separator: getSeparator(),
     };
 
-    chrome.runtime.sendMessage({ action: "saveSettings", settings }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Vocab Stash: save settings failed.", chrome.runtime.lastError);
-        settingsFeedback.textContent = "Failed to save settings. Please try again.";
-        setTimeout(() => {
-          settingsFeedback.textContent = "";
-        }, 2000);
+    try {
+      const response = await sendAction({ action: "saveSettings", settings });
+      if (response?.success) {
+        showFeedback(settingsFeedback, "Settings saved!");
         return;
       }
-      if (response && response.success) {
-        settingsFeedback.textContent = "Settings saved!";
-      } else {
-        console.error("Vocab Stash: save settings failed.", response);
-        settingsFeedback.textContent = "Failed to save settings. Please try again.";
-      }
-      setTimeout(() => {
-        settingsFeedback.textContent = "";
-      }, 2000);
-    });
+    } catch (err) {
+      console.error("Vocab Stash: save settings failed.", err);
+    }
+    showFeedback(settingsFeedback, "Failed to save settings. Please try again.");
   });
 
   // ---- Init ----
