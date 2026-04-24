@@ -22,6 +22,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveSettingsBtn = document.getElementById("save-settings-btn");
   const settingsFeedback = document.getElementById("settings-feedback");
 
+  // Validate critical DOM elements
+  const required = { wordList, wordCount, emptyState, wordListActions, clearAllBtn, exportTextarea, separatorSelect, copyBtn, sourceLangSelect, targetLangSelect, saveSettingsBtn };
+  const missing = Object.entries(required).filter(([, el]) => !el).map(([name]) => name);
+  if (missing.length > 0) {
+    console.error(`Vocab Stash: missing DOM elements: ${missing.join(", ")}. Popup will not initialize.`);
+    return;
+  }
+
   let words = [];
 
   // ---- Tab Switching ----

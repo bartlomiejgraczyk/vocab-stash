@@ -22,6 +22,16 @@
 
   <!-- ---- Tab: Words List ---- -->
   <section class="tab-content tab-content--active" id="tab-words" role="tabpanel" aria-labelledby="tab-btn-words">
+    <div class="word-list" id="word-list">
+      <p class="empty-state" id="empty-state">
+        No words saved yet.<br>
+        Select a word on any webpage to get started.
+      </p>
+    </div>
+    <div class="word-list__actions" id="word-list-actions" style="display: none;">
+      <button class="btn btn--danger" id="clear-all-btn">Clear All</button>
+    </div>
+  </section>
 
   <!-- ---- Tab: Export ---- -->
   <section class="tab-content" id="tab-export" role="tabpanel" aria-labelledby="tab-btn-export">
