@@ -1,14 +1,14 @@
 # Vocab Stash
 
-A lightweight Chrome extension for building vocabulary while browsing the web. Select a word on any page, get an instant translation, and save it as a flashcard pair for later export to Quizlet.
+A lightweight Chrome extension for building vocabulary while browsing the web. Select a word on any page, choose from multiple translation options, and save it as a flashcard pair for later export to Quizlet.
 
 ## Features
 
-- **Select & Translate** — highlight a word (or short phrase, up to 3 words) on any webpage and get an instant translation via the [MyMemory API](https://mymemory.translated.net/)
-- **One-Click Save** — save the original/translation pair to browser storage with a single click
+- **Select & Translate** — highlight a word (or short phrase, up to 3 words) on any webpage and get instant translations via the [MyMemory API](https://mymemory.translated.net/)
+- **Pick Your Translation** — choose from up to 5 translation options, sorted by quality; click to save instantly
 - **Word List** — browse and manage all saved words from the extension popup
 - **Quizlet Export** — copy your word list in a format ready to paste into Quizlet's "Import from text" feature, with a configurable separator (tab, comma, semicolon, or dash)
-- **Language Settings** — defaults to English → Polish; configurable to 13 languages including German, French, Spanish, Japanese, and more
+- **Language Settings** — defaults to English → Polish; configurable to 14 languages including German, French, Spanish, Japanese, and more
 - **Zero Config** — no API keys, no accounts, no build step; just load and go
 
 ## Installation
@@ -23,8 +23,8 @@ A lightweight Chrome extension for building vocabulary while browsing the web. S
 ## Usage
 
 1. **Select a word** on any webpage — a green **V** button appears next to the selection
-2. **Click "V"** — a tooltip shows the translation (fetched from MyMemory API)
-3. **Click "Save"** — the word pair is stored in `chrome.storage.local`
+2. **Click "V"** — a tooltip shows translation options fetched from MyMemory API
+3. **Click a translation** — the word pair is saved to `chrome.storage.local` instantly
 4. **Click the extension icon** in the Chrome toolbar to open the popup:
    - **Words** tab — view and delete saved words
    - **Export** tab — preview and copy the word list for Quizlet import
@@ -44,7 +44,7 @@ A lightweight Chrome extension for building vocabulary while browsing the web. S
 vocab-stash/
 ├── manifest.json          Manifest V3 configuration
 ├── background.js          Service worker — translation API calls & storage
-├── content.js             Content script — text selection, tooltip UI
+├── content.js             Content script — text selection, translation options UI
 ├── content.css            Minimal host styles for the shadow DOM container
 ├── shadow.css             Isolated styles for the tooltip (inside shadow DOM)
 ├── popup/
@@ -62,6 +62,7 @@ vocab-stash/
 - **Manifest V3** — uses a service worker instead of a background page, as required by Chrome since 2024
 - **Shadow DOM** — the content script renders its tooltip inside a closed shadow DOM to prevent style conflicts with the host page
 - **MyMemory API** — free tier allows up to 5,000 words/day with no authentication required
+- **Multiple translations** — the API's `matches` array is deduplicated, filtered, and sorted by quality to offer up to 5 distinct options
 - **Duplicate detection** — the same word/translation pair won't be saved twice
 - **No build step** — plain HTML, CSS, and JavaScript; no bundler or framework required
 
@@ -71,7 +72,7 @@ vocab-stash/
 |---|---|
 | `storage` | Persist saved words and settings across sessions |
 | `host_permissions` (`api.mymemory.translated.net`) | Fetch translations from the MyMemory API |
-| `<all_urls>` (content script) | Inject the word-selection UI on all web pages |
+| `http/https` (content script) | Inject the word-selection UI on web pages |
 
 ## Built With
 

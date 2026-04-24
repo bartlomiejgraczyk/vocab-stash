@@ -269,6 +269,12 @@ body {
   color: #fff;
 }
 
+/* ---- Utility ---- */
+
+.is-hidden {
+  display: none;
+}
+
 /* ---- Scrollbar ---- */
 
 .word-list::-webkit-scrollbar {

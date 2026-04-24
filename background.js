@@ -1,64 +1,67 @@
 // ===== Vocab Stash - Background Service Worker =====
 // Handles translation requests (MyMemory API) and chrome.storage operations.
 
+// ---- Constants ----
+
 const DEFAULT_SETTINGS = {
   sourceLang: "en",
   targetLang: "pl",
   separator: "\t",
 };
 
+const MAX_TRANSLATIONS = 5;
+
+const VALID_LANGS = new Set([
+  "en", "de", "fr", "es", "it", "pt", "nl", "sv", "ru", "uk", "ja", "zh", "ko", "pl",
+]);
+const VALID_SEPARATORS = new Set(["\t", ",", ";", " - "]);
+
+// ---- Validation Helpers ----
+
+function isNonEmptyString(val) {
+  return typeof val === "string" && val.trim().length > 0;
+}
+
+function validateWord(word) {
+  if (!isNonEmptyString(word)) {
+    return { valid: false, error: "No word provided" };
+  }
+  return { valid: true, trimmed: word.trim() };
+}
+
 // ---- Message Handler ----
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  switch (message.action) {
-    case "getTranslations":
-      handleGetTranslations(message.word).then(sendResponse);
-      return true;
-
-    case "saveWord":
-      handleSaveWord(message).then(sendResponse);
-      return true;
-
-    case "getWords":
-      handleGetWords().then(sendResponse);
-      return true;
-
-    case "deleteWord":
-      handleDeleteWord(message.id).then(sendResponse);
-      return true;
-
-    case "clearWords":
-      handleClearWords().then(sendResponse);
-      return true;
-
-    case "getSettings":
-      handleGetSettings().then(sendResponse);
-      return true;
-
-    case "saveSettings":
-      handleSaveSettings(message.settings).then(sendResponse);
-      return true;
-
-    default:
-      sendResponse({ success: false, error: "Unknown action" });
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  const handler = MESSAGE_HANDLERS[message.action];
+  if (handler) {
+    handler(message).then(sendResponse);
+    return true; // keep channel open for async response
   }
+  sendResponse({ success: false, error: "Unknown action" });
 });
 
-// ---- Translation ----
+const MESSAGE_HANDLERS = {
+  getTranslations: (msg) => handleGetTranslations(msg.word),
+  saveWord:        (msg) => handleSaveWord(msg),
+  getWords:        ()    => handleGetWords(),
+  deleteWord:      (msg) => handleDeleteWord(msg.id),
+  clearWords:      ()    => handleClearWords(),
+  getSettings:     ()    => handleGetSettings(),
+  saveSettings:    (msg) => handleSaveSettings(msg.settings),
+};
 
-const MAX_TRANSLATIONS = 5;
+// ---- Translation ----
 
 async function fetchTranslationData(word) {
   const settings = await getSettings();
   const url = new URL("https://api.mymemory.translated.net/get");
-  url.searchParams.set("q", word.trim());
+  url.searchParams.set("q", word);
   url.searchParams.set("langpair", `${settings.sourceLang}|${settings.targetLang}`);
 
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
-
   return response.json();
 }
 
@@ -70,18 +73,17 @@ function parseQuality(q) {
 
 /**
  * Extract unique translations from MyMemory API response.
- * Returns an array of unique, non-empty translation strings (max MAX_TRANSLATIONS).
- * The primary translation (responseData.translatedText) is always first if valid.
+ * Returns up to MAX_TRANSLATIONS unique, non-empty strings.
+ * The primary translation (responseData.translatedText) is always first.
  */
 function extractTranslations(data, normalizedWord) {
   const seen = new Set();
   const results = [];
 
-  function addTranslation(text) {
-    if (typeof text !== "string" || !text.trim()) return;
+  function add(text) {
+    if (!isNonEmptyString(text)) return;
     const trimmed = text.trim();
     const key = trimmed.toLowerCase();
-    // Skip if it's the same as the source word or already seen
     if (key === normalizedWord || seen.has(key)) return;
     seen.add(key);
     results.push(trimmed);
@@ -89,7 +91,7 @@ function extractTranslations(data, normalizedWord) {
 
   // Primary translation first
   if (data.responseData) {
-    addTranslation(data.responseData.translatedText);
+    add(data.responseData.translatedText);
   }
 
   // Additional matches sorted by quality (descending)
@@ -97,10 +99,9 @@ function extractTranslations(data, normalizedWord) {
     const sorted = [...data.matches].sort(
       (a, b) => parseQuality(b.quality) - parseQuality(a.quality)
     );
-
     for (const m of sorted) {
       if (results.length >= MAX_TRANSLATIONS) break;
-      addTranslation(m.translation);
+      add(m.translation);
     }
   }
 
@@ -109,22 +110,16 @@ function extractTranslations(data, normalizedWord) {
 
 async function handleGetTranslations(word) {
   try {
-    if (!word || typeof word !== "string" || !word.trim()) {
-      return { success: false, error: "No word provided" };
-    }
+    const check = validateWord(word);
+    if (!check.valid) return { success: false, error: check.error };
 
-    const data = await fetchTranslationData(word);
+    const data = await fetchTranslationData(check.trimmed);
 
     if (data.responseStatus !== 200 || !data.responseData) {
-      return {
-        success: false,
-        error: data.responseDetails || "Translation not found",
-      };
+      return { success: false, error: data.responseDetails || "Translation not found" };
     }
 
-    const normalizedWord = word.trim().toLowerCase();
-    const translations = extractTranslations(data, normalizedWord);
-
+    const translations = extractTranslations(data, check.trimmed.toLowerCase());
     if (translations.length === 0) {
       return { success: false, error: "Translation not found" };
     }
@@ -145,29 +140,22 @@ async function getStoredWords() {
 
 async function handleSaveWord({ word, translation, sourceUrl } = {}) {
   try {
-    if (!word || typeof word !== "string" || !word.trim()) {
-      return { success: false, error: "No word provided" };
-    }
-    if (!translation || typeof translation !== "string" || !translation.trim()) {
-      return { success: false, error: "No translation provided" };
-    }
+    const wordCheck = validateWord(word);
+    if (!wordCheck.valid) return { success: false, error: wordCheck.error };
 
-    const trimmedWord = word.trim();
-    const trimmedTranslation = translation.trim();
-    const normalizedWord = trimmedWord.toLowerCase();
-    const normalizedTranslation = trimmedTranslation.toLowerCase();
+    const transCheck = validateWord(translation);
+    if (!transCheck.valid) return { success: false, error: "No translation provided" };
+
+    const normalizedWord = wordCheck.trimmed.toLowerCase();
+    const normalizedTranslation = transCheck.trimmed.toLowerCase();
 
     const words = await getStoredWords();
 
     // Avoid exact duplicates (guard against malformed entries in storage)
     const exists = words.some((w) => {
-      if (!w || typeof w.word !== "string" || typeof w.translation !== "string") {
-        return false;
-      }
-      return (
-        w.word.toLowerCase() === normalizedWord &&
-        w.translation.toLowerCase() === normalizedTranslation
-      );
+      if (!w || typeof w.word !== "string" || typeof w.translation !== "string") return false;
+      return w.word.toLowerCase() === normalizedWord
+          && w.translation.toLowerCase() === normalizedTranslation;
     });
     if (exists) {
       return { success: true, duplicate: true };
@@ -175,15 +163,14 @@ async function handleSaveWord({ word, translation, sourceUrl } = {}) {
 
     const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      word: trimmedWord,
-      translation: trimmedTranslation,
+      word: wordCheck.trimmed,
+      translation: transCheck.trimmed,
       sourceUrl: sourceUrl || "",
       createdAt: new Date().toISOString(),
     };
 
     words.push(entry);
     await chrome.storage.local.set({ words });
-
     return { success: true, entry };
   } catch (err) {
     console.error("Vocab Stash: save error", err);
@@ -193,8 +180,7 @@ async function handleSaveWord({ word, translation, sourceUrl } = {}) {
 
 async function handleGetWords() {
   try {
-    const words = await getStoredWords();
-    return { success: true, words };
+    return { success: true, words: await getStoredWords() };
   } catch (err) {
     return { success: false, error: "Failed to load words" };
   }
@@ -203,8 +189,7 @@ async function handleGetWords() {
 async function handleDeleteWord(id) {
   try {
     const words = await getStoredWords();
-    const filtered = words.filter((w) => w.id !== id);
-    await chrome.storage.local.set({ words: filtered });
+    await chrome.storage.local.set({ words: words.filter((w) => w.id !== id) });
     return { success: true };
   } catch (err) {
     return { success: false, error: "Failed to delete word" };
@@ -229,33 +214,20 @@ async function getSettings() {
 
 async function handleGetSettings() {
   try {
-    const settings = await getSettings();
-    return { success: true, settings };
+    return { success: true, settings: await getSettings() };
   } catch (err) {
     console.error("Vocab Stash: failed to load settings", err);
     return { success: false, error: "Failed to load settings" };
   }
 }
 
-const VALID_LANGS = new Set([
-  "en", "de", "fr", "es", "it", "pt", "nl", "sv", "ru", "uk", "ja", "zh", "ko", "pl",
-]);
-const VALID_SEPARATORS = new Set(["\t", ",", ";", " - "]);
-
 async function handleSaveSettings(newSettings = {}) {
   try {
-    const current = await getSettings();
-    const merged = { ...current };
+    const merged = { ...(await getSettings()) };
 
-    if (newSettings.sourceLang && VALID_LANGS.has(newSettings.sourceLang)) {
-      merged.sourceLang = newSettings.sourceLang;
-    }
-    if (newSettings.targetLang && VALID_LANGS.has(newSettings.targetLang)) {
-      merged.targetLang = newSettings.targetLang;
-    }
-    if (newSettings.separator && VALID_SEPARATORS.has(newSettings.separator)) {
-      merged.separator = newSettings.separator;
-    }
+    if (VALID_LANGS.has(newSettings.sourceLang))      merged.sourceLang = newSettings.sourceLang;
+    if (VALID_LANGS.has(newSettings.targetLang))      merged.targetLang = newSettings.targetLang;
+    if (VALID_SEPARATORS.has(newSettings.separator))   merged.separator = newSettings.separator;
 
     await chrome.storage.local.set({ settings: merged });
     return { success: true, settings: merged };
