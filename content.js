@@ -249,7 +249,7 @@
     setTimeout(() => {
       const word = getSelectedWord();
       if (!word) {
-        // Don't remove UI if clicking inside our shadow DOM
+        removeUI();
         return;
       }
 
