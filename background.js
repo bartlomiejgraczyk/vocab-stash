@@ -15,6 +15,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleTranslate(message.word).then(sendResponse);
       return true; // keep message channel open for async response
 
+    case "getTranslations":
+      handleGetTranslations(message.word).then(sendResponse);
+      return true;
+
     case "saveWord":
       handleSaveWord(message).then(sendResponse);
       return true;
@@ -46,27 +50,80 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // ---- Translation ----
 
+const MAX_TRANSLATIONS = 5;
+
+async function fetchTranslationData(word) {
+  if (!word || typeof word !== "string" || !word.trim()) {
+    return { success: false, error: "No word provided" };
+  }
+
+  const settings = await getSettings();
+  const url = new URL("https://api.mymemory.translated.net/get");
+  url.searchParams.set("q", word.trim());
+  url.searchParams.set("langpair", `${settings.sourceLang}|${settings.targetLang}`);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Extract unique translations from MyMemory API response.
+ * Returns an array of unique, non-empty translation strings (max MAX_TRANSLATIONS).
+ * The primary translation (responseData.translatedText) is always first if valid.
+ */
+function extractTranslations(data, normalizedWord) {
+  const seen = new Set();
+  const results = [];
+
+  function addTranslation(text) {
+    if (typeof text !== "string" || !text.trim()) return;
+    const trimmed = text.trim();
+    const key = trimmed.toLowerCase();
+    // Skip if it's the same as the source word or already seen
+    if (key === normalizedWord || seen.has(key)) return;
+    seen.add(key);
+    results.push(trimmed);
+  }
+
+  // Primary translation first
+  if (data.responseData) {
+    addTranslation(data.responseData.translatedText);
+  }
+
+  // Additional matches sorted by quality (descending)
+  if (Array.isArray(data.matches)) {
+    const sorted = [...data.matches].sort((a, b) => {
+      const qa = typeof a.quality === "number" ? a.quality
+        : typeof a.quality === "string" ? parseInt(a.quality, 10) || 0
+        : 0;
+      const qb = typeof b.quality === "number" ? b.quality
+        : typeof b.quality === "string" ? parseInt(b.quality, 10) || 0
+        : 0;
+      return qb - qa;
+    });
+
+    for (const m of sorted) {
+      if (results.length >= MAX_TRANSLATIONS) break;
+      addTranslation(m.translation);
+    }
+  }
+
+  return results;
+}
+
 async function handleTranslate(word) {
   try {
-    if (!word || typeof word !== "string" || !word.trim()) {
-      return { success: false, error: "No word provided" };
+    const data = await fetchTranslationData(word);
+    if (typeof data !== "object" || !data) {
+      return { success: false, error: "Translation not found" };
     }
-
-    const settings = await getSettings();
-    const url = new URL("https://api.mymemory.translated.net/get");
-    url.searchParams.set("q", word.trim());
-    url.searchParams.set("langpair", `${settings.sourceLang}|${settings.targetLang}`);
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
 
     if (data.responseStatus === 200 && data.responseData) {
       const translation = data.responseData.translatedText;
-
       if (typeof translation !== "string" || !translation.trim()) {
         return { success: false, error: "Translation not found" };
       }
@@ -76,7 +133,6 @@ async function handleTranslate(word) {
 
       // MyMemory sometimes returns the same text if it can't translate
       if (normalizedTranslation === normalizedWord) {
-        // Try to get a match from the alternatives
         if (data.matches && data.matches.length > 1) {
           const alt = data.matches.find(
             (m) =>
@@ -97,6 +153,38 @@ async function handleTranslate(word) {
       success: false,
       error: data.responseDetails || "Translation not found",
     };
+  } catch (err) {
+    console.error("Vocab Stash: translation error", err);
+    return { success: false, error: "Translation service unavailable" };
+  }
+}
+
+async function handleGetTranslations(word) {
+  try {
+    if (!word || typeof word !== "string" || !word.trim()) {
+      return { success: false, error: "No word provided" };
+    }
+
+    const data = await fetchTranslationData(word);
+    if (typeof data !== "object" || !data) {
+      return { success: false, error: "Translation not found" };
+    }
+
+    if (data.responseStatus !== 200 || !data.responseData) {
+      return {
+        success: false,
+        error: data.responseDetails || "Translation not found",
+      };
+    }
+
+    const normalizedWord = word.trim().toLowerCase();
+    const translations = extractTranslations(data, normalizedWord);
+
+    if (translations.length === 0) {
+      return { success: false, error: "Translation not found" };
+    }
+
+    return { success: true, translations };
   } catch (err) {
     console.error("Vocab Stash: translation error", err);
     return { success: false, error: "Translation service unavailable" };

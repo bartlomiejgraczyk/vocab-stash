@@ -82,11 +82,14 @@
   background: #f0f0f0;
 }
 
+.vs-tooltip-body {
+  margin-bottom: 2px;
+}
+
 .vs-tooltip-translation {
   font-size: 15px;
   color: #4ba082;
   font-weight: 500;
-  margin-bottom: 10px;
   min-height: 20px;
 }
 
@@ -100,46 +103,60 @@
   font-size: 13px;
 }
 
-.vs-tooltip-actions {
+/* ---- Translation options list ---- */
+
+.vs-tooltip-options {
   display: flex;
-  gap: 8px;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 0;
 }
 
-.vs-tooltip-btn {
-  padding: 5px 14px;
-  border-radius: 5px;
-  border: 1px solid #ddd;
+.vs-tooltip-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
   background: #fff;
-  color: #555;
-  font-size: 13px;
+  color: #4ba082;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.1s ease;
+  font-family: inherit;
+  line-height: 1.4;
 }
 
-.vs-tooltip-btn:hover {
-  background: #f5f5f5;
+.vs-tooltip-option:last-child {
+  border-bottom: none;
 }
 
-.vs-tooltip-btn--save {
-  background: #4ba082;
-  color: #fff;
-  border-color: #4ba082;
+.vs-tooltip-option:hover:not(:disabled) {
+  background: #f0faf5;
 }
 
-.vs-tooltip-btn--save:hover {
-  background: #3d8a6e;
+.vs-tooltip-option:active:not(:disabled) {
+  background: #e0f5ec;
 }
 
-.vs-tooltip-btn--save:disabled {
-  background: #a0d0c0;
-  border-color: #a0d0c0;
-  cursor: not-allowed;
+.vs-tooltip-option--best {
+  font-weight: 600;
 }
 
-.vs-tooltip-btn--saved {
-  background: #e8f5e9;
-  color: #4ba082;
-  border-color: #4ba082;
+.vs-tooltip-option:disabled {
   cursor: default;
+  opacity: 0.7;
+}
+
+.vs-tooltip-option--saving {
+  color: #999;
+  font-style: italic;
+}
+
+.vs-tooltip-option--saved {
+  background: #e8f5e9;
+  color: #3d8a6e;
+  font-weight: 600;
+  opacity: 1;
 }

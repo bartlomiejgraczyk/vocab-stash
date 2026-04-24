@@ -16,7 +16,6 @@
   let saveBtn = null;
   let tooltip = null;
   let currentWord = "";
-  let currentTranslation = "";
 
   function ensureHost() {
     if (hostEl) return;
@@ -46,7 +45,6 @@
       tooltip = null;
     }
     currentWord = "";
-    currentTranslation = "";
   }
 
   function getSelectedWord() {
@@ -102,7 +100,7 @@
     tooltip = document.createElement("div");
     tooltip.className = "vs-tooltip";
     tooltip.setAttribute("role", "region");
-    tooltip.setAttribute("aria-label", "Translation");
+    tooltip.setAttribute("aria-label", "Translation options");
 
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
@@ -112,9 +110,8 @@
         <span class="vs-tooltip-word">${escapeHtml(word)}</span>
         <button class="vs-tooltip-close" title="Close" aria-label="Close translation tooltip">&times;</button>
       </div>
-      <div class="vs-tooltip-translation vs-tooltip-loading">Translating...</div>
-      <div class="vs-tooltip-actions">
-        <button class="vs-tooltip-btn vs-tooltip-btn--save" disabled>Save</button>
+      <div class="vs-tooltip-body">
+        <div class="vs-tooltip-translation vs-tooltip-loading">Translating...</div>
       </div>
     `;
 
@@ -126,12 +123,6 @@
     tooltip.querySelector(".vs-tooltip-close").addEventListener("click", (e) => {
       e.stopPropagation();
       removeUI();
-    });
-
-    // Save button
-    tooltip.querySelector(".vs-tooltip-btn--save").addEventListener("click", (e) => {
-      e.stopPropagation();
-      onTooltipSave();
     });
 
     shadow.appendChild(tooltip);
@@ -157,30 +148,98 @@
     });
   }
 
-  function updateTooltipTranslation(translation) {
+  function updateTooltipOptions(translations) {
     if (!tooltip) return;
-    const el = tooltip.querySelector(".vs-tooltip-translation");
-    el.classList.remove("vs-tooltip-loading");
-    el.textContent = translation;
 
-    const btn = tooltip.querySelector(".vs-tooltip-btn--save");
-    btn.disabled = false;
+    const body = tooltip.querySelector(".vs-tooltip-body");
+    if (!body) return;
+
+    // Replace loading indicator with clickable options list
+    body.innerHTML = "";
+
+    const list = document.createElement("div");
+    list.className = "vs-tooltip-options";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-label", "Choose a translation");
+
+    translations.forEach((translation, index) => {
+      const option = document.createElement("button");
+      option.className = "vs-tooltip-option";
+      option.setAttribute("role", "option");
+      option.textContent = translation;
+      option.title = "Click to save this translation";
+      if (index === 0) option.classList.add("vs-tooltip-option--best");
+
+      option.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onOptionSelect(option, translation);
+      });
+
+      list.appendChild(option);
+    });
+
+    body.appendChild(list);
+
+    // Re-check viewport fit after content change
+    requestAnimationFrame(() => {
+      if (!tooltip) return;
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const scrollY = window.scrollY;
+      if (tooltipRect.bottom > viewportHeight - 10) {
+        tooltip.style.top = `${parseInt(tooltip.style.top) - (tooltipRect.bottom - viewportHeight + 10)}px`;
+      }
+    });
+  }
+
+  function onOptionSelect(optionEl, translation) {
+    if (!currentWord || optionEl.disabled) return;
+
+    // Disable all options to prevent double-save
+    const allOptions = tooltip.querySelectorAll(".vs-tooltip-option");
+    allOptions.forEach((opt) => { opt.disabled = true; });
+
+    // Mark selected
+    optionEl.classList.add("vs-tooltip-option--saving");
+    optionEl.textContent = `${translation} — saving...`;
+
+    chrome.runtime.sendMessage(
+      {
+        action: "saveWord",
+        word: currentWord,
+        translation: translation,
+        sourceUrl: window.location.origin,
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Vocab Stash: save failed", chrome.runtime.lastError);
+          // Re-enable options on failure
+          allOptions.forEach((opt) => { opt.disabled = false; });
+          optionEl.classList.remove("vs-tooltip-option--saving");
+          optionEl.textContent = translation;
+          return;
+        }
+        if (response && response.success) {
+          optionEl.classList.remove("vs-tooltip-option--saving");
+          optionEl.classList.add("vs-tooltip-option--saved");
+          optionEl.textContent = response.duplicate
+            ? `${translation} — already saved`
+            : `${translation} — saved!`;
+        } else {
+          // Re-enable options on failure
+          allOptions.forEach((opt) => { opt.disabled = false; });
+          optionEl.classList.remove("vs-tooltip-option--saving");
+          optionEl.textContent = translation;
+        }
+      }
+    );
   }
 
   function updateTooltipError(message) {
     if (!tooltip) return;
-    const el = tooltip.querySelector(".vs-tooltip-translation");
-    el.classList.remove("vs-tooltip-loading");
-    el.innerHTML = `<span class="vs-tooltip-error">${escapeHtml(message)}</span>`;
-  }
-
-  function updateTooltipSaved() {
-    if (!tooltip) return;
-    const btn = tooltip.querySelector(".vs-tooltip-btn--save");
-    btn.textContent = "Saved!";
-    btn.classList.remove("vs-tooltip-btn--save");
-    btn.classList.add("vs-tooltip-btn--saved");
-    btn.disabled = true;
+    const body = tooltip.querySelector(".vs-tooltip-body");
+    if (!body) return;
+    body.innerHTML = `<div class="vs-tooltip-translation"><span class="vs-tooltip-error">${escapeHtml(message)}</span></div>`;
   }
 
   // ---- Actions ----
@@ -198,41 +257,18 @@
 
     showTooltip(rect, word);
 
-    // Request translation from background script
+    // Request multiple translations from background script
     chrome.runtime.sendMessage(
-      { action: "translate", word: word },
+      { action: "getTranslations", word: word },
       (response) => {
         if (chrome.runtime.lastError) {
           updateTooltipError("Translation failed. Try again.");
           return;
         }
-        if (response && response.success) {
-          currentTranslation = response.translation;
-          updateTooltipTranslation(response.translation);
+        if (response && response.success && Array.isArray(response.translations)) {
+          updateTooltipOptions(response.translations);
         } else {
           updateTooltipError(response?.error || "Translation failed.");
-        }
-      }
-    );
-  }
-
-  function onTooltipSave() {
-    if (!currentWord || !currentTranslation) return;
-
-    chrome.runtime.sendMessage(
-      {
-        action: "saveWord",
-        word: currentWord,
-        translation: currentTranslation,
-        sourceUrl: window.location.origin,
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          console.error("Vocab Stash: save failed", chrome.runtime.lastError);
-          return;
-        }
-        if (response && response.success) {
-          updateTooltipSaved();
         }
       }
     );

@@ -284,6 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const sepMap = { "\t": "\\t", ",": ",", ";": ";", " - ": " - " };
         const sepValue = sepMap[s.separator] || "\\t";
         separatorSelect.value = sepValue;
+        updateExportPreview();
       }
     });
   }
