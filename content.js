@@ -105,7 +105,7 @@
     tooltip.innerHTML = `
       <div class="vs-tooltip-header">
         <span class="vs-tooltip-word">${escapeHtml(word)}</span>
-        <button class="vs-tooltip-close" title="Close">&times;</button>
+        <button class="vs-tooltip-close" title="Close" aria-label="Close translation tooltip">&times;</button>
       </div>
       <div class="vs-tooltip-translation vs-tooltip-loading">Translating...</div>
       <div class="vs-tooltip-actions">

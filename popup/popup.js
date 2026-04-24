@@ -99,6 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "word-item__delete";
       deleteBtn.title = "Delete";
+      deleteBtn.setAttribute("aria-label", `Delete "${entry.word}"`);
       deleteBtn.dataset.id = entry.id;
       deleteBtn.innerHTML = "&times;";
 
@@ -213,14 +214,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
-
-  // ---- Utilities ----
-
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  }
 
   // ---- Init ----
 

@@ -28,8 +28,8 @@ jobs:
 
       - name: Check tag does not already exist
         run: |
-          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
-            echo "::error::Tag v${{ inputs.version }} already exists"
+          if git ls-remote --tags origin | grep -q "refs/tags/v${{ inputs.version }}$"; then
+            echo "::error::Tag v${{ inputs.version }} already exists on remote"
             exit 1
           fi
 
