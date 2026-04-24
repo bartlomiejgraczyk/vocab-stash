@@ -73,32 +73,23 @@ const MESSAGE_HANDLERS = {
   saveSettings:    (msg) => handleSaveSettings(msg.settings),
 };
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message) => {
   const action = isPlainObject(message) ? message.action : null;
   const handler = typeof action === "string" ? MESSAGE_HANDLERS[action] : null;
 
   if (!handler) {
-    sendResponse({ success: false, error: "Unknown action" });
-    return false;
+    return Promise.resolve({ success: false, error: "Unknown action" });
   }
 
-  let result;
   try {
-    result = handler(message);
+    return Promise.resolve(handler(message)).catch((err) => {
+      console.error("Vocab Stash: message handler error", err);
+      return { success: false, error: "Unexpected error" };
+    });
   } catch (err) {
     console.error("Vocab Stash: message handler error", err);
-    sendResponse({ success: false, error: "Unexpected error" });
-    return false;
+    return Promise.resolve({ success: false, error: "Unexpected error" });
   }
-
-  Promise.resolve(result)
-    .then(sendResponse)
-    .catch((err) => {
-      console.error("Vocab Stash: message handler error", err);
-      sendResponse({ success: false, error: "Unexpected error" });
-    });
-
-  return true; // keep channel open for async response
 });
 
 // ---- Translation ----
