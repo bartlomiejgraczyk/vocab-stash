@@ -43,7 +43,13 @@ A lightweight Chrome extension for building vocabulary while browsing the web. S
 ```
 vocab-stash/
 ├── manifest.json          Manifest V3 configuration
-├── background.js          Service worker — translation API calls & storage
+├── background/            Service worker modules
+│   ├── index.js           Message router (entrypoint)
+│   ├── translation.js     MyMemory API integration + translation extraction
+│   ├── words.js           Saved words CRUD in chrome.storage
+│   ├── settings.js        Settings read/write logic
+│   ├── validation.js      Shared validation/normalization helpers
+│   └── constants.js       Shared constants
 ├── content.js             Content script — text selection, translation options UI
 ├── content.css            Minimal host styles for the shadow DOM container
 ├── shadow.css             Isolated styles for the tooltip (inside shadow DOM)
