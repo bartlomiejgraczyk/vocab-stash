@@ -35,7 +35,7 @@
   "web_accessible_resources": [
     {
       "resources": ["shadow.css"],
-      "matches": ["<all_urls>"]
+      "matches": ["http://*/*", "https://*/*"]
     }
   ]
 }

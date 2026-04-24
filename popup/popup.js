@@ -296,12 +296,23 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     chrome.runtime.sendMessage({ action: "saveSettings", settings }, (response) => {
-      if (response && response.success) {
-        settingsFeedback.textContent = "Settings saved!";
+      if (chrome.runtime.lastError) {
+        console.error("Vocab Stash: save settings failed.", chrome.runtime.lastError);
+        settingsFeedback.textContent = "Failed to save settings. Please try again.";
         setTimeout(() => {
           settingsFeedback.textContent = "";
         }, 2000);
+        return;
       }
+      if (response && response.success) {
+        settingsFeedback.textContent = "Settings saved!";
+      } else {
+        console.error("Vocab Stash: save settings failed.", response);
+        settingsFeedback.textContent = "Failed to save settings. Please try again.";
+      }
+      setTimeout(() => {
+        settingsFeedback.textContent = "";
+      }, 2000);
     });
   });
 

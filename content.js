@@ -77,7 +77,6 @@
     saveBtn.title = "Vocab Stash: Translate & Save";
     saveBtn.setAttribute("aria-label", "Translate and save selected word");
     saveBtn.setAttribute("aria-expanded", "false");
-    saveBtn.setAttribute("aria-controls", "vs-translation-tooltip");
 
     // Position to the right of the selection
     const scrollX = window.scrollX;
@@ -102,7 +101,6 @@
 
     tooltip = document.createElement("div");
     tooltip.className = "vs-tooltip";
-    tooltip.id = "vs-translation-tooltip";
     tooltip.setAttribute("role", "region");
     tooltip.setAttribute("aria-label", "Translation");
 

@@ -203,7 +203,7 @@ const VALID_LANGS = new Set([
 ]);
 const VALID_SEPARATORS = new Set(["\t", ",", ";", " - "]);
 
-async function handleSaveSettings(newSettings) {
+async function handleSaveSettings(newSettings = {}) {
   try {
     const current = await getSettings();
     const merged = { ...current };
