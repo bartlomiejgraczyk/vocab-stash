@@ -26,21 +26,52 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- Tab Switching ----
 
-  tabButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const tabName = btn.dataset.tab;
+  function activateTab(btn) {
+    const tabName = btn.dataset.tab;
 
-      tabButtons.forEach((b) => b.classList.remove("tabs__btn--active"));
-      tabContents.forEach((c) => c.classList.remove("tab-content--active"));
-
-      btn.classList.add("tabs__btn--active");
-      document.getElementById(`tab-${tabName}`).classList.add("tab-content--active");
-
-      // Refresh export when switching to export tab
-      if (tabName === "export") {
-        updateExportPreview();
-      }
+    tabButtons.forEach((b) => {
+      b.classList.remove("tabs__btn--active");
+      b.setAttribute("aria-selected", "false");
+      b.setAttribute("tabindex", "-1");
     });
+    tabContents.forEach((c) => c.classList.remove("tab-content--active"));
+
+    btn.classList.add("tabs__btn--active");
+    btn.setAttribute("aria-selected", "true");
+    btn.setAttribute("tabindex", "0");
+    btn.focus();
+    document.getElementById(`tab-${tabName}`).classList.add("tab-content--active");
+
+    // Refresh export when switching to export tab
+    if (tabName === "export") {
+      updateExportPreview();
+    }
+  }
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => activateTab(btn));
+  });
+
+  // Arrow key navigation between tabs
+  document.querySelector(".tabs").addEventListener("keydown", (e) => {
+    const tabs = [...tabButtons];
+    const current = tabs.findIndex((b) => b.getAttribute("aria-selected") === "true");
+    let next = -1;
+
+    if (e.key === "ArrowRight") {
+      next = (current + 1) % tabs.length;
+    } else if (e.key === "ArrowLeft") {
+      next = (current - 1 + tabs.length) % tabs.length;
+    } else if (e.key === "Home") {
+      next = 0;
+    } else if (e.key === "End") {
+      next = tabs.length - 1;
+    }
+
+    if (next >= 0) {
+      e.preventDefault();
+      activateTab(tabs[next]);
+    }
   });
 
   // ---- Word List ----
@@ -153,7 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
       exportTextarea.placeholder = "No words to export yet.";
       return;
     }
-    const lines = words.map((w) => `${w.word}${sep}${w.translation}`);
+    const lines = [...words].reverse().map((w) => `${w.word}${sep}${w.translation}`);
     exportTextarea.value = lines.join("\n");
   }
 
@@ -172,8 +203,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       // Fallback: select + copy
       exportTextarea.select();
-      document.execCommand("copy");
-      copyFeedback.textContent = "Copied to clipboard!";
+      const ok = document.execCommand("copy");
+      copyFeedback.textContent = ok
+        ? "Copied to clipboard!"
+        : "Copy failed. Please select the text and copy manually.";
     }
 
     setTimeout(() => {

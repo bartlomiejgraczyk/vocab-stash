@@ -14,27 +14,17 @@
   </header>
 
   <!-- ---- Tabs ---- -->
-  <nav class="tabs">
-    <button class="tabs__btn tabs__btn--active" data-tab="words">Words</button>
-    <button class="tabs__btn" data-tab="export">Export</button>
-    <button class="tabs__btn" data-tab="settings">Settings</button>
+  <nav class="tabs" role="tablist">
+    <button class="tabs__btn tabs__btn--active" data-tab="words" role="tab" id="tab-btn-words" aria-selected="true" aria-controls="tab-words" tabindex="0">Words</button>
+    <button class="tabs__btn" data-tab="export" role="tab" id="tab-btn-export" aria-selected="false" aria-controls="tab-export" tabindex="-1">Export</button>
+    <button class="tabs__btn" data-tab="settings" role="tab" id="tab-btn-settings" aria-selected="false" aria-controls="tab-settings" tabindex="-1">Settings</button>
   </nav>
 
   <!-- ---- Tab: Words List ---- -->
-  <section class="tab-content tab-content--active" id="tab-words">
-    <div class="word-list" id="word-list">
-      <p class="empty-state" id="empty-state">
-        No words saved yet.<br>
-        Select a word on any webpage to get started.
-      </p>
-    </div>
-    <div class="word-list__actions" id="word-list-actions" style="display: none;">
-      <button class="btn btn--danger" id="clear-all-btn">Clear All</button>
-    </div>
-  </section>
+  <section class="tab-content tab-content--active" id="tab-words" role="tabpanel" aria-labelledby="tab-btn-words">
 
   <!-- ---- Tab: Export ---- -->
-  <section class="tab-content" id="tab-export">
+  <section class="tab-content" id="tab-export" role="tabpanel" aria-labelledby="tab-btn-export">
     <div class="export-section">
       <label class="label" for="separator-select">Separator</label>
       <select id="separator-select" class="select">
@@ -58,7 +48,7 @@
   </section>
 
   <!-- ---- Tab: Settings ---- -->
-  <section class="tab-content" id="tab-settings">
+  <section class="tab-content" id="tab-settings" role="tabpanel" aria-labelledby="tab-btn-settings">
     <div class="setting-group">
       <label class="label" for="source-lang">Source Language</label>
       <select id="source-lang" class="select">

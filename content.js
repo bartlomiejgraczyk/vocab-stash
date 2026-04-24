@@ -136,12 +136,18 @@
       if (!tooltip) return;
       const tooltipRect = tooltip.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
 
       if (tooltipRect.right > viewportWidth - 10) {
         tooltip.style.left = `${viewportWidth - tooltipRect.width - 10 + scrollX}px`;
       }
       if (tooltipRect.left < 10) {
         tooltip.style.left = `${10 + scrollX}px`;
+      }
+
+      // If tooltip overflows below viewport, reposition above the selection
+      if (tooltipRect.bottom > viewportHeight - 10) {
+        tooltip.style.top = `${rect.top + scrollY - tooltipRect.height - 8}px`;
       }
     });
   }
@@ -265,6 +271,13 @@
       removeUI();
     }
   });
+
+  // Dismiss UI on scroll (position would be stale)
+  window.addEventListener("scroll", () => {
+    if (saveBtn || tooltip) {
+      removeUI();
+    }
+  }, { passive: true });
 
   // ---- Utilities ----
 
