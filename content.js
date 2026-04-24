@@ -224,7 +224,7 @@
         action: "saveWord",
         word: currentWord,
         translation: currentTranslation,
-        sourceUrl: window.location.href,
+        sourceUrl: window.location.origin,
       },
       (response) => {
         if (chrome.runtime.lastError) {

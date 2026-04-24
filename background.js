@@ -121,15 +121,21 @@ async function handleSaveWord({ word, translation, sourceUrl } = {}) {
 
     const trimmedWord = word.trim();
     const trimmedTranslation = translation.trim();
+    const normalizedWord = trimmedWord.toLowerCase();
+    const normalizedTranslation = trimmedTranslation.toLowerCase();
 
     const words = await getStoredWords();
 
-    // Avoid exact duplicates
-    const exists = words.some(
-      (w) =>
-        w.word.toLowerCase() === trimmedWord.toLowerCase() &&
-        w.translation.toLowerCase() === trimmedTranslation.toLowerCase()
-    );
+    // Avoid exact duplicates (guard against malformed entries in storage)
+    const exists = words.some((w) => {
+      if (!w || typeof w.word !== "string" || typeof w.translation !== "string") {
+        return false;
+      }
+      return (
+        w.word.toLowerCase() === normalizedWord &&
+        w.translation.toLowerCase() === normalizedTranslation
+      );
+    });
     if (exists) {
       return { success: true, duplicate: true };
     }
