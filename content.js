@@ -280,11 +280,15 @@
   });
 
   // Dismiss UI on scroll (position would be stale)
-  window.addEventListener("scroll", () => {
+  // Listen on both window and document (capture phase) to catch
+  // scrolls inside overflow containers, not just the main viewport.
+  function dismissOnScroll() {
     if (saveBtn || tooltip) {
       removeUI();
     }
-  }, { passive: true });
+  }
+  window.addEventListener("scroll", dismissOnScroll, { passive: true });
+  document.addEventListener("scroll", dismissOnScroll, { passive: true, capture: true });
 
   // ---- Utilities ----
 

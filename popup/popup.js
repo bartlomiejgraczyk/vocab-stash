@@ -43,13 +43,19 @@ document.addEventListener("DOMContentLoaded", () => {
       b.setAttribute("aria-selected", "false");
       b.setAttribute("tabindex", "-1");
     });
-    tabContents.forEach((c) => c.classList.remove("tab-content--active"));
+    tabContents.forEach((c) => {
+      c.classList.remove("tab-content--active");
+      c.hidden = true;
+    });
 
     btn.classList.add("tabs__btn--active");
     btn.setAttribute("aria-selected", "true");
     btn.setAttribute("tabindex", "0");
     btn.focus();
-    document.getElementById(`tab-${tabName}`).classList.add("tab-content--active");
+
+    const activePanel = document.getElementById(`tab-${tabName}`);
+    activePanel.classList.add("tab-content--active");
+    activePanel.hidden = false;
 
     // Refresh export when switching to export tab
     if (tabName === "export") {
@@ -222,6 +228,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = exportTextarea.value;
     if (!text) {
       copyFeedback.textContent = "Nothing to copy.";
+      setTimeout(() => {
+        copyFeedback.textContent = "";
+      }, 2000);
       return;
     }
 

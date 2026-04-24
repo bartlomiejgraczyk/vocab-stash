@@ -34,7 +34,7 @@
   </section>
 
   <!-- ---- Tab: Export ---- -->
-  <section class="tab-content" id="tab-export" role="tabpanel" aria-labelledby="tab-btn-export">
+  <section class="tab-content" id="tab-export" role="tabpanel" aria-labelledby="tab-btn-export" hidden>
     <div class="export-section">
       <label class="label" for="separator-select">Separator</label>
       <select id="separator-select" class="select">
@@ -54,11 +54,11 @@
     <div class="export-actions">
       <button class="btn btn--primary" id="copy-btn">Copy to Clipboard</button>
     </div>
-    <p class="copy-feedback" id="copy-feedback"></p>
+    <p class="copy-feedback" id="copy-feedback" role="status" aria-live="polite"></p>
   </section>
 
   <!-- ---- Tab: Settings ---- -->
-  <section class="tab-content" id="tab-settings" role="tabpanel" aria-labelledby="tab-btn-settings">
+  <section class="tab-content" id="tab-settings" role="tabpanel" aria-labelledby="tab-btn-settings" hidden>
     <div class="setting-group">
       <label class="label" for="source-lang">Source Language</label>
       <select id="source-lang" class="select">
@@ -101,7 +101,7 @@
     <div class="setting-actions">
       <button class="btn btn--primary" id="save-settings-btn">Save Settings</button>
     </div>
-    <p class="settings-feedback" id="settings-feedback"></p>
+    <p class="settings-feedback" id="settings-feedback" role="status" aria-live="polite"></p>
   </section>
 
   <script src="popup.js"></script>

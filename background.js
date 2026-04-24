@@ -105,6 +105,11 @@ async function handleTranslate(word) {
 
 // ---- Word Storage ----
 
+async function getStoredWords() {
+  const { words } = await chrome.storage.local.get("words");
+  return Array.isArray(words) ? words : [];
+}
+
 async function handleSaveWord({ word, translation, sourceUrl }) {
   try {
     if (!word || typeof word !== "string" || !word.trim()) {
@@ -117,7 +122,7 @@ async function handleSaveWord({ word, translation, sourceUrl }) {
     const trimmedWord = word.trim();
     const trimmedTranslation = translation.trim();
 
-    const { words = [] } = await chrome.storage.local.get("words");
+    const words = await getStoredWords();
 
     // Avoid exact duplicates
     const exists = words.some(
@@ -149,7 +154,7 @@ async function handleSaveWord({ word, translation, sourceUrl }) {
 
 async function handleGetWords() {
   try {
-    const { words = [] } = await chrome.storage.local.get("words");
+    const words = await getStoredWords();
     return { success: true, words };
   } catch (err) {
     return { success: false, error: "Failed to load words" };
@@ -158,7 +163,7 @@ async function handleGetWords() {
 
 async function handleDeleteWord(id) {
   try {
-    const { words = [] } = await chrome.storage.local.get("words");
+    const words = await getStoredWords();
     const filtered = words.filter((w) => w.id !== id);
     await chrome.storage.local.set({ words: filtered });
     return { success: true };
