@@ -105,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (count === 0) {
       emptyState.style.display = "block";
       wordListActions.style.display = "none";
+      updateExportPreview();
       return;
     }
 
@@ -155,6 +156,9 @@ document.addEventListener("DOMContentLoaded", () => {
         deleteWord(id);
       });
     });
+
+    // Keep export preview in sync
+    updateExportPreview();
   }
 
   function deleteWord(id) {
