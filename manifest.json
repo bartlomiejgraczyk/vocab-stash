@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vocab Stash",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Save vocabulary while browsing. Select a word, get a translation, and export flashcards for Quizlet.",
   "permissions": [
     "storage"
