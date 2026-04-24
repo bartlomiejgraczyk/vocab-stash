@@ -184,9 +184,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function deleteWord(id) {
     chrome.runtime.sendMessage({ action: "deleteWord", id }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Vocab Stash: delete failed.", chrome.runtime.lastError);
+        loadWords(); // reload to ensure UI is in sync with storage
+        return;
+      }
       if (response && response.success) {
         words = words.filter((w) => w.id !== id);
         renderWordList();
+      } else {
+        console.error("Vocab Stash: delete failed.", response);
+        loadWords();
       }
     });
   }
@@ -195,9 +203,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!confirm("Delete all saved words? This cannot be undone.")) return;
 
     chrome.runtime.sendMessage({ action: "clearWords" }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Vocab Stash: clear failed.", chrome.runtime.lastError);
+        loadWords();
+        return;
+      }
       if (response && response.success) {
         words = [];
         renderWordList();
+      } else {
+        console.error("Vocab Stash: clear failed.", response);
+        loadWords();
       }
     });
   });

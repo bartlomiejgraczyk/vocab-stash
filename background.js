@@ -72,7 +72,7 @@ async function handleTranslate(word) {
       }
 
       const normalizedWord = word.trim().toLowerCase();
-      const normalizedTranslation = translation.toLowerCase();
+      const normalizedTranslation = translation.trim().toLowerCase();
 
       // MyMemory sometimes returns the same text if it can't translate
       if (normalizedTranslation === normalizedWord) {
@@ -85,12 +85,12 @@ async function handleTranslate(word) {
               m.quality > 0
           );
           if (alt) {
-            return { success: true, translation: alt.translation };
+            return { success: true, translation: alt.translation.trim() };
           }
         }
       }
 
-      return { success: true, translation: translation };
+      return { success: true, translation: translation.trim() };
     }
 
     return {
@@ -189,14 +189,35 @@ async function getSettings() {
 }
 
 async function handleGetSettings() {
-  const settings = await getSettings();
-  return { success: true, settings };
+  try {
+    const settings = await getSettings();
+    return { success: true, settings };
+  } catch (err) {
+    console.error("Vocab Stash: failed to load settings", err);
+    return { success: false, error: "Failed to load settings" };
+  }
 }
+
+const VALID_LANGS = new Set([
+  "en", "de", "fr", "es", "it", "pt", "nl", "sv", "ru", "uk", "ja", "zh", "ko", "pl",
+]);
+const VALID_SEPARATORS = new Set(["\t", ",", ";", " - "]);
 
 async function handleSaveSettings(newSettings) {
   try {
     const current = await getSettings();
-    const merged = { ...current, ...newSettings };
+    const merged = { ...current };
+
+    if (newSettings.sourceLang && VALID_LANGS.has(newSettings.sourceLang)) {
+      merged.sourceLang = newSettings.sourceLang;
+    }
+    if (newSettings.targetLang && VALID_LANGS.has(newSettings.targetLang)) {
+      merged.targetLang = newSettings.targetLang;
+    }
+    if (newSettings.separator && VALID_SEPARATORS.has(newSettings.separator)) {
+      merged.separator = newSettings.separator;
+    }
+
     await chrome.storage.local.set({ settings: merged });
     return { success: true, settings: merged };
   } catch (err) {
